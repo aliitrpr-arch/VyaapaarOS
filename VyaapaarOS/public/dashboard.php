@@ -490,7 +490,7 @@ body {
 <div class="layout">
 
 <!-- =====================================================
-     SIDEBAR - FIXED: ALL 4 ITEMS NOW MATCH PERFECTLY
+     SIDEBAR - FIXED: 4 ITEMS NOW MATCH PERFECTLY
 ===================================================== -->
 
 <aside class="sidebar">
@@ -514,6 +514,18 @@ body {
 <div class="sidebar-title">
     Business
 </div>
+
+<!-- 1. PURCHASE INWARD - NOW MATCHES PERFECTLY -->
+<a href="purchase_inward.php">
+    <span class="sidebar-icon">📥</span>
+    Purchase Inward
+</a>
+
+<!-- 2. QUALITY CHECK - NOW MATCHES PERFECTLY -->
+<a href="quality_check.php">
+    <span class="sidebar-icon">✅</span>
+    Quality Check
+</a>
 
 <?php if (
     PermissionMiddleware::check(
@@ -593,6 +605,11 @@ body {
     Stock Alerts
 </a>
 
+<a href="inventory_batches.php">
+    <span class="sidebar-icon">📋</span>
+    Inventory Batches
+</a>
+
 <?php endif; ?>
 
 <?php if (
@@ -640,7 +657,7 @@ body {
 </div>
 
 <!-- =====================================================
-     SETUP - THE 4 MAIN ITEMS WITH MATCHING DESIGN
+     SETUP
 ===================================================== -->
 
 <div class="sidebar-section">
@@ -656,8 +673,7 @@ body {
     )
 ): ?>
 
-<!-- 1. COMPANY - MATCHING DESIGN -->
-<a href="companies.php" class="setup-item">
+<a href="companies.php">
     <span class="sidebar-icon">🏢</span>
     Company
 </a>
@@ -671,8 +687,7 @@ body {
     )
 ): ?>
 
-<!-- 2. BRANCHES - MATCHING DESIGN -->
-<a href="branches.php" class="setup-item">
+<a href="branches.php">
     <span class="sidebar-icon">🏢</span>
     Branches
 </a>
@@ -686,8 +701,7 @@ body {
     )
 ): ?>
 
-<!-- 3. WAREHOUSES - MATCHING DESIGN -->
-<a href="warehouses.php" class="setup-item">
+<a href="warehouses.php">
     <span class="sidebar-icon">🏬</span>
     Warehouses
 </a>
@@ -701,10 +715,39 @@ body {
     )
 ): ?>
 
-<!-- 4. CATEGORIES - MATCHING DESIGN -->
-<a href="categories.php" class="setup-item">
+<a href="categories.php">
     <span class="sidebar-icon">🗂️</span>
     Categories
+</a>
+
+<?php endif; ?>
+
+<!-- 3. BRANDS - NOW MATCHES PERFECTLY -->
+<?php if (
+    PermissionMiddleware::check(
+        'brand.view',
+        'view'
+    )
+): ?>
+
+<a href="brands.php">
+    <span class="sidebar-icon">🏷️</span>
+    Brands
+</a>
+
+<?php endif; ?>
+
+<!-- 4. PRODUCT GROUPS - NOW MATCHES PERFECTLY -->
+<?php if (
+    PermissionMiddleware::check(
+        'product_group.view',
+        'view'
+    )
+): ?>
+
+<a href="product_groups.php">
+    <span class="sidebar-icon">📁</span>
+    Product Groups
 </a>
 
 <?php endif; ?>
@@ -733,6 +776,20 @@ body {
 <a href="salesmen.php">
     <span class="sidebar-icon">👨‍💼</span>
     Salesmen
+</a>
+
+<?php endif; ?>
+
+<?php if (
+    PermissionMiddleware::check(
+        'product_unit.view',
+        'view'
+    )
+): ?>
+
+<a href="product_units.php">
+    <span class="sidebar-icon">📦</span>
+    Product Units / UOM
 </a>
 
 <?php endif; ?>
@@ -934,6 +991,40 @@ body {
 </div>
 
 <div class="quick-grid">
+
+<!-- Purchase Inward -->
+<a href="purchase_inward.php" class="quick-card">
+
+<div class="quick-icon">
+    📥
+</div>
+
+<div class="quick-name">
+    Purchase Inward
+</div>
+
+<div class="quick-desc">
+    Receive purchased goods
+</div>
+
+</a>
+
+<!-- Quality Check -->
+<a href="quality_check.php" class="quick-card">
+
+<div class="quick-icon">
+    ✅
+</div>
+
+<div class="quick-name">
+    Quality Check
+</div>
+
+<div class="quick-desc">
+    Check and approve received goods
+</div>
+
+</a>
 
 <?php if (
     PermissionMiddleware::check(
@@ -1233,6 +1324,44 @@ body {
 
 <span class="setup-name">
     Categories
+</span>
+
+</a>
+
+<?php endif; ?>
+
+<?php if (
+    PermissionMiddleware::check(
+        'brand.view',
+        'view'
+    )
+): ?>
+
+<a href="brands.php" class="setup-card">
+
+<span class="setup-icon">🏷️</span>
+
+<span class="setup-name">
+    Brands
+</span>
+
+</a>
+
+<?php endif; ?>
+
+<?php if (
+    PermissionMiddleware::check(
+        'product_group.view',
+        'view'
+    )
+): ?>
+
+<a href="product_groups.php" class="setup-card">
+
+<span class="setup-icon">📁</span>
+
+<span class="setup-name">
+    Product Groups
 </span>
 
 </a>
