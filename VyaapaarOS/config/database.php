@@ -5,5 +5,5 @@ return [
     'port' => '6543',
     'database' => 'postgres',
     'username' => 'postgres.aeaatfmrophpbgyqcrom',
-    'password' => 'Shoukat#1234'                         // अपना असली पासवर्ड दोबारा पक्का कर लें
+    'password' => '120888Shoukat'                         // अपना असली पासवर्ड दोबारा पक्का कर लें
 ];
