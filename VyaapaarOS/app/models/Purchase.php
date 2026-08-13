@@ -27,8 +27,6 @@ class Purchase
                 p.party_name,
                 v.warehouse_id,
                 w.warehouse_name,
-                v.salesman_id,
-                s.salesman_name,
                 v.total_taxable_amount,
                 v.cgst_amount,
                 v.sgst_amount,
@@ -48,8 +46,6 @@ class Purchase
                 ON p.id = v.party_id
             LEFT JOIN warehouses w
                 ON w.id = v.warehouse_id
-            LEFT JOIN salesmen s
-                ON s.id = v.salesman_id
             WHERE v.company_id = :company_id
               AND v.branch_id = :branch_id
               AND v.voucher_type = 'PURCHASE'
@@ -134,7 +130,6 @@ class Purchase
      *     'financial_year_id' => 1,
      *     'warehouse_id' => null,
      *     'party_id' => null,
-     *     'salesman_id' => null,
      *     'total_taxable_amount' => 0,
      *     'cgst_amount' => 0,
      *     'sgst_amount' => 0,
@@ -204,7 +199,6 @@ class Purchase
                     branch_id,
                     warehouse_id,
                     party_id,
-                    salesman_id,
                     voucher_number,
                     voucher_type,
                     voucher_date,
@@ -233,7 +227,6 @@ class Purchase
                     :branch_id,
                     :warehouse_id,
                     :party_id,
-                    :salesman_id,
                     :voucher_number,
                     'PURCHASE',
                     :voucher_date,
@@ -267,7 +260,6 @@ class Purchase
                 ':branch_id'             => $branchId,
                 ':warehouse_id'          => $data['warehouse_id'] ?? null,
                 ':party_id'              => $data['party_id'] ?? null,
-                ':salesman_id'           => $data['salesman_id'] ?? null,
                 ':voucher_number'        => $data['voucher_number'],
                 ':voucher_date'          => $data['voucher_date'],
                 ':financial_year_id'     => $data['financial_year_id'],
@@ -292,17 +284,6 @@ class Purchase
             $voucherId = (int) $stmt->fetchColumn();
 
             self::insertItems($voucherId, $items);
-
-            if ($status === 'POSTED') {
-                self::createStockIn(
-                    $companyId,
-                    $branchId,
-                    $createdBy,
-                    $voucherId,
-                    $data,
-                    $items
-                );
-            }
 
             $db->commit();
 
@@ -488,7 +469,7 @@ class Purchase
      * Cancel purchase
      *
      * Posted purchase ko direct delete nahi karenge.
-     * Usko CANCELLED karenge aur reverse stock transaction create karenge.
+     * Usko CANCELLED karenge. Stock reversal, if required, belongs to the Inward/QC stock workflow.
      */
     public static function cancel(
         int $id,
@@ -516,15 +497,6 @@ class Purchase
             if ($purchase['status'] === 'CANCELLED') {
                 throw new RuntimeException(
                     'Purchase is already cancelled.'
-                );
-            }
-
-            if ($purchase['status'] === 'POSTED') {
-                self::createStockOutForCancellation(
-                    $companyId,
-                    $branchId,
-                    $userId,
-                    $purchase
                 );
             }
 
