@@ -44,7 +44,6 @@ function money($value): float
 $parties = [];
 $products = [];
 $warehouses = [];
-$salesmen = [];
 $financialYears = [];
 $branchState = '';
 
@@ -94,16 +93,6 @@ try {
         'branch_id' => $branchId
     ]);
     $warehouses = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $stmt = $db->prepare("
-        SELECT id, salesman_name, phone, commission_percent
-        FROM salesmen
-        WHERE company_id = :company_id
-          AND is_active = TRUE
-        ORDER BY salesman_name
-    ");
-    $stmt->execute(['company_id' => $companyId]);
-    $salesmen = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $stmt = $db->prepare("
         SELECT id, year_name, start_date, end_date, is_active
@@ -163,13 +152,11 @@ if ($viewId > 0) {
                 b.email AS branch_email,
                 b.address AS branch_address,
                 b.state_code AS branch_state,
-                s.salesman_name,
                 fy.year_name
             FROM vouchers v
             LEFT JOIN parties p ON p.id = v.party_id
             LEFT JOIN warehouses w ON w.id = v.warehouse_id
             LEFT JOIN branches b ON b.id = v.branch_id
-            LEFT JOIN salesmen s ON s.id = v.salesman_id
             LEFT JOIN financial_years fy ON fy.id = v.financial_year_id
             WHERE v.id = :id
               AND v.company_id = :company_id
@@ -228,7 +215,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $partyId = !empty($_POST['party_id']) ? (int)$_POST['party_id'] : null;
         $warehouseId = !empty($_POST['warehouse_id']) ? (int)$_POST['warehouse_id'] : null;
-        $salesmanId = !empty($_POST['salesman_id']) ? (int)$_POST['salesman_id'] : null;
         $financialYearId = !empty($_POST['financial_year_id']) ? (int)$_POST['financial_year_id'] : null;
         $narration = trim($_POST['narration'] ?? '');
 
@@ -433,7 +419,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $db->prepare("
             INSERT INTO vouchers
             (
-                company_id, branch_id, warehouse_id, party_id, salesman_id,
+                company_id, branch_id, warehouse_id, party_id,
                 voucher_number, voucher_type, voucher_date, financial_year_id,
                 total_taxable_amount, cgst_amount, sgst_amount, igst_amount,
                 cess_amount, scheme_discount_amount, round_off, net_amount,
@@ -442,7 +428,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             )
             VALUES
             (
-                :company_id, :branch_id, :warehouse_id, :party_id, :salesman_id,
+                :company_id, :branch_id, :warehouse_id, :party_id,
                 :voucher_number, 'PURCHASE', :voucher_date, :financial_year_id,
                 :total_taxable_amount, :cgst_amount, :sgst_amount, :igst_amount,
                 :cess_amount, :scheme_discount_amount, :round_off, :net_amount,
@@ -457,7 +443,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'branch_id' => $branchId,
             'warehouse_id' => $warehouseId,
             'party_id' => $partyId,
-            'salesman_id' => $salesmanId,
             'voucher_number' => $voucherNumber,
             'voucher_date' => $voucherDate,
             'financial_year_id' => $financialYearId,
@@ -504,43 +489,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $item['voucher_id'] = $voucherId;
             $itemStmt->execute($item);
 
-            if ($status === 'POSTED') {
-                $inventoryStmt = $db->prepare("
-                    INSERT INTO inventory_transactions
-                    (
-                        company_id, branch_id, warehouse_id, product_id, batch_id,
-                        voucher_id, transaction_type, qty_in, qty_out, rate,
-                        transaction_date, reference_id, narration, created_by, created_at
-                    )
-                    VALUES
-                    (
-                        :company_id, :branch_id, :warehouse_id, :product_id, NULL,
-                        :voucher_id, 'STOCK_IN', :qty_in, 0, :rate,
-                        :transaction_date, :reference_id, :narration,
-                        :created_by, CURRENT_TIMESTAMP
-                    )
-                ");
-
-                $inventoryStmt->execute([
-                    'company_id' => $companyId,
-                    'branch_id' => $branchId,
-                    'warehouse_id' => $warehouseId,
-                    'product_id' => $item['product_id'],
-                    'voucher_id' => $voucherId,
-                    'qty_in' => money($item['qty'] + $item['free_qty']),
-                    'rate' => $item['rate'],
-                    'transaction_date' => $voucherDate,
-                    'reference_id' => $voucherId,
-                    'narration' => 'Purchase ' . $voucherNumber,
-                    'created_by' => $userId
-                ]);
-            }
         }
 
         $db->commit();
 
         $message = $status === 'POSTED'
-            ? 'Purchase posted successfully and stock updated ✅'
+            ? 'Purchase posted successfully. Stock will be updated after Inward / Quality Check approval ✅'
             : 'Purchase saved as draft successfully ✅';
 
     } catch (Throwable $ex) {
@@ -666,7 +620,6 @@ button{padding:10px 18px;cursor:pointer}
             <strong>Warehouse</strong><br>
             <?= e($viewPurchase['warehouse_name'] ?? '-') ?>
             (<?= e($viewPurchase['warehouse_code'] ?? '-') ?>)<br><br>
-            <strong>Salesman:</strong> <?= e($viewPurchase['salesman_name'] ?? '-') ?><br>
             <strong>Place of Supply:</strong> <?= e($viewPurchase['place_of_supply'] ?? '-') ?>
         </div>
     </div>
@@ -676,6 +629,7 @@ button{padding:10px 18px;cursor:pointer}
         <tr>
             <th>#</th>
             <th>Product</th>
+            <th>UOM</th>
             <th>Qty</th>
             <th>Free</th>
             <th>Rate</th>
@@ -691,6 +645,7 @@ button{padding:10px 18px;cursor:pointer}
         <tr>
             <td><?= $i + 1 ?></td>
             <td><?= e($item['product_name']) ?><?= $item['sku'] ? ' (' . e($item['sku']) . ')' : '' ?></td>
+            <td><?= e($item['unit_name'] ?? '-') ?></td>
             <td class="text-right"><?= number_format((float)$item['qty'], 3) ?></td>
             <td class="text-right"><?= number_format((float)$item['free_qty'], 3) ?></td>
             <td class="text-right"><?= number_format((float)$item['rate'], 2) ?></td>
@@ -860,16 +815,6 @@ th{background:#f8fafc}
 </div>
 
 <div class="field">
-<label>Salesman</label>
-<select name="salesman_id">
-<option value="">-- Select Salesman --</option>
-<?php foreach ($salesmen as $salesman): ?>
-<option value="<?= (int)$salesman['id'] ?>"><?= e($salesman['salesman_name']) ?></option>
-<?php endforeach; ?>
-</select>
-</div>
-
-<div class="field">
 <label>Financial Year *</label>
 <select name="financial_year_id" required>
 <option value="">-- Select Financial Year --</option>
@@ -914,7 +859,7 @@ th{background:#f8fafc}
 <br>
 <button type="button" class="btn btn-primary" onclick="addItem()">+ Add Product</button>
 <div class="totals-note">
-GST is automatically split into CGST/SGST for intra-state purchases and IGST for inter-state purchases.
+GST is automatically split into CGST/SGST for intra-state purchases and IGST for inter-state purchases. Purchase posting does not directly increase stock; actual received/accepted quantity will enter stock after Purchase Inward / Quality Check.
 </div>
 </div>
 
@@ -1086,6 +1031,7 @@ function productOptions() {
                 data-mrp="${Number(product.mrp || 0)}"
                 data-gst="${Number(product.gst_rate || 0)}"
                 data-cess="${Number(product.cess_rate || 0)}"
+                data-uom="${escapeHtml(product.unit_name || '-')}"
             >
                 ${escapeHtml(product.product_name)}
                 ${product.sku ? ' - ' + escapeHtml(product.sku) : ''}
@@ -1114,6 +1060,10 @@ function addItem() {
             >
                 ${productOptions()}
             </select>
+        </td>
+
+        <td>
+            <input type="text" class="item-input uom" value="-" readonly>
         </td>
 
         <td>
@@ -1230,6 +1180,7 @@ function productChanged(select) {
         row.querySelector('.rate').value = 0;
         row.querySelector('.mrp').value = 0;
         row.querySelector('.gst').value = 0;
+        row.querySelector('.uom').value = '-';
         row.dataset.cess = 0;
         calculateSummary();
         return;
@@ -1238,6 +1189,7 @@ function productChanged(select) {
     row.querySelector('.rate').value = Number(option.dataset.rate || 0).toFixed(2);
     row.querySelector('.mrp').value = Number(option.dataset.mrp || 0).toFixed(2);
     row.querySelector('.gst').value = Number(option.dataset.gst || 0).toFixed(2);
+    row.querySelector('.uom').value = option.dataset.uom || '-';
     row.dataset.cess = Number(option.dataset.cess || 0);
 
     calculateSummary();
@@ -1253,6 +1205,7 @@ function removeItem(button) {
         row.querySelector('.mrp').value = '0';
         row.querySelector('.discount').value = '0';
         row.querySelector('.gst').value = '0';
+        row.querySelector('.uom').value = '-';
         row.dataset.cess = 0;
         calculateSummary();
         return;
