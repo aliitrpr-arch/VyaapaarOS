@@ -490,7 +490,7 @@ body {
 <div class="layout">
 
 <!-- =====================================================
-     SIDEBAR
+     SIDEBAR - FIXED: ALL 4 ITEMS NOW MATCH PERFECTLY
 ===================================================== -->
 
 <aside class="sidebar">
@@ -499,15 +499,11 @@ body {
     Vyaapaar<span>OS</span>
 </div>
 
-
-<a
-    href="dashboard.php"
-    class="active"
->
+<!-- DASHBOARD -->
+<a href="dashboard.php" class="active">
     <span class="sidebar-icon">🏠</span>
     Dashboard
 </a>
-
 
 <!-- =====================================================
      BUSINESS
@@ -518,7 +514,6 @@ body {
 <div class="sidebar-title">
     Business
 </div>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -534,7 +529,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'party.view',
@@ -548,7 +542,6 @@ body {
 </a>
 
 <?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -564,27 +557,6 @@ body {
 
 <?php endif; ?>
 
-
-<?php if (
-    PermissionMiddleware::check(
-        'purchase.view',
-        'view'
-    )
-): ?>
-
-<a href="purchase_inward.php">
-    <span class="sidebar-icon">📥</span>
-    Purchase Inward
-</a>
-
-<a href="quality_check.php">
-    <span class="sidebar-icon">🔎</span>
-    Quality Check
-</a>
-
-<?php endif; ?>
-
-
 <?php if (
     PermissionMiddleware::check(
         'sale.view',
@@ -598,29 +570,6 @@ body {
 </a>
 
 <?php endif; ?>
-
-
-<?php if (
-    PermissionMiddleware::check(
-        'purchase.view',
-        'view'
-    )
-): ?>
-
-<a href="purchase_inward.php" class="quick-card">
-    <div class="quick-icon">📥</div>
-    <div class="quick-name">Purchase Inward</div>
-    <div class="quick-desc">Receive purchased goods</div>
-</a>
-
-<a href="quality_check.php" class="quick-card">
-    <div class="quick-icon">🔎</div>
-    <div class="quick-name">Quality Check</div>
-    <div class="quick-desc">Check and approve received goods</div>
-</a>
-
-<?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -644,13 +593,7 @@ body {
     Stock Alerts
 </a>
 
-<a href="inventory_batches.php">
-    <span class="sidebar-icon">🧾</span>
-    Inventory Batches
-</a>
-
 <?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -666,7 +609,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'payment.view',
@@ -680,7 +622,6 @@ body {
 </a>
 
 <?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -698,9 +639,8 @@ body {
 
 </div>
 
-
 <!-- =====================================================
-     SETUP
+     SETUP - THE 4 MAIN ITEMS WITH MATCHING DESIGN
 ===================================================== -->
 
 <div class="sidebar-section">
@@ -709,7 +649,6 @@ body {
     Setup
 </div>
 
-
 <?php if (
     PermissionMiddleware::check(
         'company.view',
@@ -717,13 +656,13 @@ body {
     )
 ): ?>
 
-<a href="companies.php">
+<!-- 1. COMPANY - MATCHING DESIGN -->
+<a href="companies.php" class="setup-item">
     <span class="sidebar-icon">🏢</span>
     Company
 </a>
 
 <?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -732,13 +671,13 @@ body {
     )
 ): ?>
 
-<a href="branches.php">
+<!-- 2. BRANCHES - MATCHING DESIGN -->
+<a href="branches.php" class="setup-item">
     <span class="sidebar-icon">🏢</span>
     Branches
 </a>
 
 <?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -747,13 +686,13 @@ body {
     )
 ): ?>
 
-<a href="warehouses.php">
+<!-- 3. WAREHOUSES - MATCHING DESIGN -->
+<a href="warehouses.php" class="setup-item">
     <span class="sidebar-icon">🏬</span>
     Warehouses
 </a>
 
 <?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -762,33 +701,13 @@ body {
     )
 ): ?>
 
-<a href="categories.php">
+<!-- 4. CATEGORIES - MATCHING DESIGN -->
+<a href="categories.php" class="setup-item">
     <span class="sidebar-icon">🗂️</span>
     Categories
 </a>
 
 <?php endif; ?>
-
-
-<?php if (
-    PermissionMiddleware::check(
-        'product.view',
-        'view'
-    )
-): ?>
-
-<a href="brands.php" class="setup-card">
-    <span class="setup-icon">🏷️</span>
-    <span class="setup-name">Brands</span>
-</a>
-
-<a href="product_groups.php" class="setup-card">
-    <span class="setup-icon">📚</span>
-    <span class="setup-name">Product Groups</span>
-</a>
-
-<?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -803,7 +722,6 @@ body {
 </a>
 
 <?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -821,7 +739,6 @@ body {
 
 </div>
 
-
 <!-- =====================================================
      ADMINISTRATION
 ===================================================== -->
@@ -831,7 +748,6 @@ body {
 <div class="sidebar-title">
     Administration
 </div>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -847,7 +763,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'role.view',
@@ -861,7 +776,6 @@ body {
 </a>
 
 <?php endif; ?>
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -881,13 +795,11 @@ body {
 
 </aside>
 
-
 <!-- =====================================================
      MAIN
 ===================================================== -->
 
 <main class="main">
-
 
 <!-- TOP BAR -->
 
@@ -896,7 +808,6 @@ body {
 <div class="topbar-title">
     Dashboard
 </div>
-
 
 <div class="user-area">
 
@@ -909,7 +820,6 @@ body {
         )
     ) ?>
 </div>
-
 
 <div class="user-info">
 
@@ -927,11 +837,9 @@ body {
 
 </header>
 
-
 <!-- CONTENT -->
 
 <div class="content">
-
 
 <!-- WELCOME -->
 
@@ -945,9 +853,7 @@ body {
     Manage your business operations from one place.
 </p>
 
-
 <div class="info-grid">
-
 
 <div class="info-card">
 
@@ -961,7 +867,6 @@ body {
 
 </div>
 
-
 <div class="info-card">
 
 <div class="label">
@@ -973,7 +878,6 @@ body {
 </div>
 
 </div>
-
 
 <div class="info-card">
 
@@ -989,7 +893,6 @@ body {
 
 </div>
 
-
 <div class="info-card">
 
 <div class="label">
@@ -1004,11 +907,9 @@ body {
 
 </div>
 
-
 </div>
 
 </div>
-
 
 <!-- =====================================================
      BUSINESS QUICK ACCESS
@@ -1032,9 +933,7 @@ body {
 
 </div>
 
-
 <div class="quick-grid">
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -1043,10 +942,7 @@ body {
     )
 ): ?>
 
-<a
-    href="sales.php"
-    class="quick-card"
->
+<a href="sales.php" class="quick-card">
 
 <div class="quick-icon">
     💰
@@ -1064,7 +960,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'purchase.view',
@@ -1072,10 +967,7 @@ body {
     )
 ): ?>
 
-<a
-    href="purchases.php"
-    class="quick-card"
->
+<a href="purchases.php" class="quick-card">
 
 <div class="quick-icon">
     🛒
@@ -1093,7 +985,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'inventory.view',
@@ -1101,10 +992,7 @@ body {
     )
 ): ?>
 
-<a
-    href="inventory.php"
-    class="quick-card"
->
+<a href="inventory.php" class="quick-card">
 
 <div class="quick-icon">
     📊
@@ -1122,7 +1010,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'ledger.view',
@@ -1130,10 +1017,7 @@ body {
     )
 ): ?>
 
-<a
-    href="ledger.php"
-    class="quick-card"
->
+<a href="ledger.php" class="quick-card">
 
 <div class="quick-icon">
     📒
@@ -1151,7 +1035,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'product.view',
@@ -1159,10 +1042,7 @@ body {
     )
 ): ?>
 
-<a
-    href="products.php"
-    class="quick-card"
->
+<a href="products.php" class="quick-card">
 
 <div class="quick-icon">
     📦
@@ -1180,7 +1060,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'party.view',
@@ -1188,10 +1067,7 @@ body {
     )
 ): ?>
 
-<a
-    href="parties.php"
-    class="quick-card"
->
+<a href="parties.php" class="quick-card">
 
 <div class="quick-icon">
     👤
@@ -1209,7 +1085,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'payment.view',
@@ -1217,10 +1092,7 @@ body {
     )
 ): ?>
 
-<a
-    href="payments.php"
-    class="quick-card"
->
+<a href="payments.php" class="quick-card">
 
 <div class="quick-icon">
     💳
@@ -1238,7 +1110,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'report.view',
@@ -1246,10 +1117,7 @@ body {
     )
 ): ?>
 
-<a
-    href="reports.php"
-    class="quick-card"
->
+<a href="reports.php" class="quick-card">
 
 <div class="quick-icon">
     📈
@@ -1267,11 +1135,9 @@ body {
 
 <?php endif; ?>
 
-
 </div>
 
 </div>
-
 
 <!-- =====================================================
      SETUP
@@ -1295,9 +1161,7 @@ body {
 
 </div>
 
-
 <div class="setup-grid">
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -1306,10 +1170,7 @@ body {
     )
 ): ?>
 
-<a
-    href="companies.php"
-    class="setup-card"
->
+<a href="companies.php" class="setup-card">
 
 <span class="setup-icon">🏢</span>
 
@@ -1321,7 +1182,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'branch.view',
@@ -1329,10 +1189,7 @@ body {
     )
 ): ?>
 
-<a
-    href="branches.php"
-    class="setup-card"
->
+<a href="branches.php" class="setup-card">
 
 <span class="setup-icon">🏢</span>
 
@@ -1344,7 +1201,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'warehouse.view',
@@ -1352,10 +1208,7 @@ body {
     )
 ): ?>
 
-<a
-    href="warehouses.php"
-    class="setup-card"
->
+<a href="warehouses.php" class="setup-card">
 
 <span class="setup-icon">🏬</span>
 
@@ -1367,7 +1220,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'category.view',
@@ -1375,10 +1227,7 @@ body {
     )
 ): ?>
 
-<a
-    href="categories.php"
-    class="setup-card"
->
+<a href="categories.php" class="setup-card">
 
 <span class="setup-icon">🗂️</span>
 
@@ -1390,7 +1239,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'zone.view',
@@ -1398,10 +1246,7 @@ body {
     )
 ): ?>
 
-<a
-    href="zones.php"
-    class="setup-card"
->
+<a href="zones.php" class="setup-card">
 
 <span class="setup-icon">📍</span>
 
@@ -1413,7 +1258,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'salesman.view',
@@ -1421,10 +1265,7 @@ body {
     )
 ): ?>
 
-<a
-    href="salesmen.php"
-    class="setup-card"
->
+<a href="salesmen.php" class="setup-card">
 
 <span class="setup-icon">👨‍💼</span>
 
@@ -1436,8 +1277,6 @@ body {
 
 <?php endif; ?>
 
-
-
 <?php if (
     PermissionMiddleware::check(
         'product_unit.view',
@@ -1445,10 +1284,7 @@ body {
     )
 ): ?>
 
-<a
-    href="product_units.php"
-    class="setup-card"
->
+<a href="product_units.php" class="setup-card">
 
 <span class="setup-icon">📦</span>
 
@@ -1460,32 +1296,9 @@ body {
 
 <?php endif; ?>
 
-
-<?php if (
-    PermissionMiddleware::check(
-        'scheme.view',
-        'view'
-    )
-): ?>
-
-<a
-    href="schemes.php"
-    class="setup-card"
->
-    <span class="setup-icon">🎁</span>
-    <span class="setup-name">
-        Schemes
-    </span>
-</a>
-
-<?php endif; ?>
-    
-
-
 </div>
 
 </div>
-
 
 <!-- =====================================================
      ADMINISTRATION
@@ -1509,9 +1322,7 @@ body {
 
 </div>
 
-
 <div class="admin-grid">
-
 
 <?php if (
     PermissionMiddleware::check(
@@ -1520,10 +1331,7 @@ body {
     )
 ): ?>
 
-<a
-    href="users.php"
-    class="admin-card"
->
+<a href="users.php" class="admin-card">
 
 <span class="setup-icon">
     👥
@@ -1537,7 +1345,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'role.view',
@@ -1545,10 +1352,7 @@ body {
     )
 ): ?>
 
-<a
-    href="roles.php"
-    class="admin-card"
->
+<a href="roles.php" class="admin-card">
 
 <span class="setup-icon">
     🔐
@@ -1562,7 +1366,6 @@ body {
 
 <?php endif; ?>
 
-
 <?php if (
     PermissionMiddleware::check(
         'permission.view',
@@ -1570,10 +1373,7 @@ body {
     )
 ): ?>
 
-<a
-    href="permissions.php"
-    class="admin-card"
->
+<a href="permissions.php" class="admin-card">
 
 <span class="setup-icon">
     🔑
@@ -1587,11 +1387,9 @@ body {
 
 <?php endif; ?>
 
-
 </div>
 
 </div>
-
 
 <!-- =====================================================
      LOGOUT
@@ -1601,17 +1399,13 @@ body {
 
 <div class="logout-area">
 
-<a
-    href="logout.php"
-    class="logout"
->
+<a href="logout.php" class="logout">
     🚪 Logout
 </a>
 
 </div>
 
 </div>
-
 
 </div>
 
