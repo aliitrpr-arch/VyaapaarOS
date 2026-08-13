@@ -567,6 +567,26 @@ body {
 
 <?php if (
     PermissionMiddleware::check(
+        'purchase.view',
+        'view'
+    )
+): ?>
+
+<a href="purchase_inward.php">
+    <span class="sidebar-icon">📥</span>
+    Purchase Inward
+</a>
+
+<a href="quality_check.php">
+    <span class="sidebar-icon">🔎</span>
+    Quality Check
+</a>
+
+<?php endif; ?>
+
+
+<?php if (
+    PermissionMiddleware::check(
         'sale.view',
         'view'
     )
@@ -575,6 +595,28 @@ body {
 <a href="sales.php">
     <span class="sidebar-icon">💰</span>
     Sales
+</a>
+
+<?php endif; ?>
+
+
+<?php if (
+    PermissionMiddleware::check(
+        'purchase.view',
+        'view'
+    )
+): ?>
+
+<a href="purchase_inward.php" class="quick-card">
+    <div class="quick-icon">📥</div>
+    <div class="quick-name">Purchase Inward</div>
+    <div class="quick-desc">Receive purchased goods</div>
+</a>
+
+<a href="quality_check.php" class="quick-card">
+    <div class="quick-icon">🔎</div>
+    <div class="quick-name">Quality Check</div>
+    <div class="quick-desc">Check and approve received goods</div>
 </a>
 
 <?php endif; ?>
@@ -600,6 +642,11 @@ body {
 <a href="stock_alerts.php">
     <span class="sidebar-icon">⚠️</span>
     Stock Alerts
+</a>
+
+<a href="inventory_batches.php">
+    <span class="sidebar-icon">🧾</span>
+    Inventory Batches
 </a>
 
 <?php endif; ?>
@@ -718,6 +765,26 @@ body {
 <a href="categories.php">
     <span class="sidebar-icon">🗂️</span>
     Categories
+</a>
+
+<?php endif; ?>
+
+
+<?php if (
+    PermissionMiddleware::check(
+        'product.view',
+        'view'
+    )
+): ?>
+
+<a href="brands.php" class="setup-card">
+    <span class="setup-icon">🏷️</span>
+    <span class="setup-name">Brands</span>
+</a>
+
+<a href="product_groups.php" class="setup-card">
+    <span class="setup-icon">📚</span>
+    <span class="setup-name">Product Groups</span>
 </a>
 
 <?php endif; ?>
@@ -1389,6 +1456,26 @@ body {
     Product Units / UOM
 </span>
 
+</a>
+
+<?php endif; ?>
+
+
+<?php if (
+    PermissionMiddleware::check(
+        'scheme.view',
+        'view'
+    )
+): ?>
+
+<a
+    href="schemes.php"
+    class="setup-card"
+>
+    <span class="setup-icon">🎁</span>
+    <span class="setup-name">
+        Schemes
+    </span>
 </a>
 
 <?php endif; ?>
