@@ -1370,6 +1370,31 @@ body {
 <?php endif; ?>
 
 
+
+<?php if (
+    PermissionMiddleware::check(
+        'product_unit.view',
+        'view'
+    )
+): ?>
+
+<a
+    href="product_units.php"
+    class="setup-card"
+>
+
+<span class="setup-icon">📦</span>
+
+<span class="setup-name">
+    Product Units / UOM
+</span>
+
+</a>
+
+<?php endif; ?>
+    
+
+
 </div>
 
 </div>
