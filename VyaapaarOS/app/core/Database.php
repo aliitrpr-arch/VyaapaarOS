@@ -12,7 +12,7 @@ class Database
             $port = '6543';
             $database = 'postgres';
             $username = 'postgres.aeaatfmrophpbgyqcrom';
-            $password = 'Shoukat#1234'; 
+            $password = '120888Shoukat'; 
 
             $dsn = "pgsql:host={$host};port={$port};dbname={$database}";
 
