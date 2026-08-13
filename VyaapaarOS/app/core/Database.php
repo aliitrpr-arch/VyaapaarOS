@@ -7,15 +7,19 @@ class Database
     public static function connect(): PDO
     {
         if (self::$pdo === null) {
+            // सीधे लाइव Supabase डेटाबेस से जोड़ना (No config file dependency)
+            $host = '://supabase.com';
+            $port = '6543';
+            $database = 'postgres';
+            $username = 'postgres.aeaatfmrophpbgyqcrom';
+            $password = 'Shoukat#1234'; 
 
-            $config = require __DIR__ . '/../../config/database.php';
-
-            $dsn = "pgsql:host={$config['host']};port={$config['port']};dbname={$config['database']}";
+            $dsn = "pgsql:host={$host};port={$port};dbname={$database}";
 
             self::$pdo = new PDO(
                 $dsn,
-                $config['username'],
-                $config['password'],
+                $username,
+                $password,
                 [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
