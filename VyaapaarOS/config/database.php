@@ -1,9 +1,9 @@
 <?php
 
 return [
-    'host' => '://supabase.com', // नया लाइव पूलर होस्ट
-    'port' => '6543',                                     // नया पोर्ट
-    'database' => 'postgres',                            // नया डिफ़ॉल्ट DB नाम
-    'username' => 'postgres.aeaatfmrophpbgyqcrom',        // आपका विशिष्ट यूजरनेम
-    'password' => 'Shoukat#1234'                         // आपका असली पासवर्ड जो आपने सेट किया था
+    'host' => 'aws-0-ap-northeast-1.pooler.supabase.com', // यहाँ कोई भी "://" या "http://" नहीं होना चाहिए
+    'port' => '6543',
+    'database' => 'postgres',
+    'username' => 'postgres.aeaatfmrophpbgyqcrom',
+    'password' => 'Shoukat#1234'                         // अपना असली पासवर्ड दोबारा पक्का कर लें
 ];
