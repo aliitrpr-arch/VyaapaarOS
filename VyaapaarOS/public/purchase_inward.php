@@ -105,7 +105,7 @@ try {
             p.base_unit_id,
             u.id AS unit_id,
             u.unit_name,
-            u.unit_code,
+            u.u.unit_name,
             u.is_base_unit
         FROM products p
         LEFT JOIN product_units u ON u.id = p.base_unit_id
@@ -276,7 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     p.purchase_price, 
                     p.mrp, 
                     p.gst_rate,
-                    u.unit_code,
+                    u.u.unit_name,
                     u.unit_name
                 FROM products p
                 LEFT JOIN product_units u ON u.id = p.base_unit_id
@@ -318,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'manufacturing_date' => $manufacturingDate,
                 'expiry_date' => $expiryDate,
                 'remarks' => $itemRemark !== '' ? $itemRemark : null,
-                'unit_code' => $product['unit_code'] ?? ''
+                'u.unit_name' => $product['u.unit_name'] ?? ''
             ];
         }
 
@@ -492,8 +492,8 @@ $today = date('Y-m-d');
 function productOptions($products) {
     $html = '<option value="">-- Select Product --</option>';
     foreach ($products as $product) {
-        $unitDisplay = !empty($product['unit_code']) 
-            ? ' (' . e($product['unit_code']) . ')' 
+        $unitDisplay = !empty($product['u.unit_name']) 
+            ? ' (' . e($product['u.unit_name']) . ')' 
             : '';
         $html .= sprintf(
             '<option value="%d" data-rate="%s" data-mrp="%s" data-unit="%s">
@@ -502,7 +502,7 @@ function productOptions($products) {
             (int)$product['id'],
             (float)$product['purchase_price'],
             (float)$product['mrp'],
-            e($product['unit_code'] ?? ''),
+            e($product['u.unit_name'] ?? ''),
             e($product['product_name']),
             !empty($product['sku']) ? '- ' . e($product['sku']) : '',
             $unitDisplay
@@ -970,9 +970,9 @@ function escapeHtml(value) {
 function productOptions() {
     let html = '<option value="">-- Select Product --</option>';
     products.forEach(product => {
-        let unitDisplay = product.unit_code ? ' (' + escapeHtml(product.unit_code) + ')' : '';
+        let unitDisplay = product.u.unit_name ? ' (' + escapeHtml(product.u.unit_name) + ')' : '';
         html += `
-            <option value="${product.id}" data-rate="${product.purchase_price || 0}" data-mrp="${product.mrp || 0}" data-unit="${escapeHtml(product.unit_code || '')}">
+            <option value="${product.id}" data-rate="${product.purchase_price || 0}" data-mrp="${product.mrp || 0}" data-unit="${escapeHtml(product.u.unit_name || '')}">
                 ${escapeHtml(product.product_name)}
                 ${product.sku ? ' - ' + escapeHtml(product.sku) : ''}
                 ${unitDisplay}
