@@ -49,7 +49,6 @@ function qty($value): float
 $suppliers = [];
 $warehouses = [];
 $products = [];
-$productUnits = [];
 $inwards = [];
 
 try {
@@ -107,40 +106,7 @@ try {
             u.id AS unit_id,
             u.unit_name,
             u.unit_code,
-            u.is_base_unit,
-            -- Get all available units for this product
-            (
-                SELECT json_agg(
-                    json_build_object(
-                        'unit_id', pu.id,
-                        'unit_code', pu.unit_code,
-                        'unit_name', pu.unit_name,
-                        'is_base', pu.is_base_unit,
-                        'conversion_factor', (
-                            SELECT conversion_factor 
-                            FROM product_unit_conversions 
-                            WHERE product_id = p.id 
-                              AND from_unit_id = pu.id 
-                              AND to_unit_id = p.base_unit_id
-                              AND is_active = TRUE
-                            LIMIT 1
-                        )
-                    )
-                )
-                FROM product_units pu
-                WHERE pu.id IN (
-                    SELECT to_unit_id 
-                    FROM product_unit_conversions 
-                    WHERE product_id = p.id 
-                      AND is_active = TRUE
-                    UNION
-                    SELECT from_unit_id 
-                    FROM product_unit_conversions 
-                    WHERE product_id = p.id 
-                      AND is_active = TRUE
-                )
-                OR pu.id = p.base_unit_id
-            ) AS available_units
+            u.is_base_unit
         FROM products p
         LEFT JOIN product_units u ON u.id = p.base_unit_id
         WHERE p.company_id = :company_id
@@ -149,20 +115,6 @@ try {
     ");
     $stmt->execute(['company_id' => $companyId]);
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    /*
-    |--------------------------------------------------------------------------
-    | All Units (for dropdown)
-    |--------------------------------------------------------------------------
-    */
-    $stmt = $db->prepare("
-        SELECT id, unit_name, unit_code, is_base_unit
-        FROM product_units
-        WHERE company_id = :company_id AND is_active = TRUE
-        ORDER BY unit_name
-    ");
-    $stmt->execute(['company_id' => $companyId]);
-    $productUnits = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (Throwable $ex) {
     $error = 'Master data load error: ' . $ex->getMessage();
@@ -200,7 +152,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Item arrays
         $productIds = $_POST['product_id'] ?? [];
-        $unitIds = $_POST['unit_id'] ?? [];  // Selected unit for receiving
         $receivedQtys = $_POST['received_qty'] ?? [];
         $freeQtys = $_POST['free_qty'] ?? [];
         $rates = $_POST['rate'] ?? [];
@@ -291,7 +242,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 continue;
             }
 
-            $unitId = isset($unitIds[$index]) ? (int)$unitIds[$index] : 0;
             $receivedQty = qty($receivedQtys[$index] ?? 0);
             $freeQty = qty($freeQtys[$index] ?? 0);
             $rate = money($rates[$index] ?? 0);
@@ -342,49 +292,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             /*
             |--------------------------------------------------------------------------
-            | Validate Unit (if provided, check if valid for this product)
+            | Date Validation
             |--------------------------------------------------------------------------
             */
-            if ($unitId > 0 && $unitId != $product['base_unit_id']) {
-                // Check if this unit is valid for the product
-                $stmt = $db->prepare("
-                    SELECT conversion_factor 
-                    FROM product_unit_conversions 
-                    WHERE product_id = :product_id 
-                      AND from_unit_id = :unit_id 
-                      AND to_unit_id = :base_unit_id
-                      AND is_active = TRUE
-                    LIMIT 1
-                ");
-                $stmt->execute([
-                    'product_id' => $productId,
-                    'unit_id' => $unitId,
-                    'base_unit_id' => $product['base_unit_id']
-                ]);
-                $conversion = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if (!$conversion) {
-                    // Try reverse conversion
-                    $stmt = $db->prepare("
-                        SELECT 1 / conversion_factor AS conversion_factor 
-                        FROM product_unit_conversions 
-                        WHERE product_id = :product_id 
-                          AND from_unit_id = :base_unit_id 
-                          AND to_unit_id = :unit_id
-                          AND is_active = TRUE
-                        LIMIT 1
-                    ");
-                    $stmt->execute([
-                        'product_id' => $productId,
-                        'base_unit_id' => $product['base_unit_id'],
-                        'unit_id' => $unitId
-                    ]);
-                    $conversion = $stmt->fetch(PDO::FETCH_ASSOC);
-                }
-                
-                if (!$conversion) {
-                    throw new Exception('Invalid unit selected for product: ' . $product['product_name']);
-                }
+            if ($manufacturingDate !== null && $expiryDate !== null && $expiryDate < $manufacturingDate) {
+                throw new Exception('Expiry date cannot be before manufacturing date for ' . $product['product_name']);
             }
 
             // Auto-fill rate and MRP if not provided
@@ -395,21 +307,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mrp = $product['mrp'];
             }
 
-            // Use selected unit or base unit
-            $finalUnitId = $unitId > 0 ? $unitId : $product['base_unit_id'];
-
-            // Get unit code for display
-            $stmt = $db->prepare("
-                SELECT unit_code, unit_name 
-                FROM product_units 
-                WHERE id = :unit_id
-            ");
-            $stmt->execute(['unit_id' => $finalUnitId]);
-            $unitInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-
             $items[] = [
                 'product_id' => $productId,
-                'unit_id' => $finalUnitId,
+                'unit_id' => (int)$product['base_unit_id'],
                 'received_qty' => $receivedQty,
                 'free_qty' => $freeQty,
                 'rate' => $rate,
@@ -418,8 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'manufacturing_date' => $manufacturingDate,
                 'expiry_date' => $expiryDate,
                 'remarks' => $itemRemark !== '' ? $itemRemark : null,
-                'unit_code' => $unitInfo['unit_code'] ?? $product['unit_code'] ?? '',
-                'unit_name' => $unitInfo['unit_name'] ?? $product['unit_name'] ?? ''
+                'unit_code' => $product['unit_code'] ?? ''
             ];
         }
 
@@ -589,6 +488,29 @@ try {
 $defaultInwardNumber = 'INW-' . date('Ymd-His');
 $today = date('Y-m-d');
 
+// Product dropdown function
+function productOptions($products) {
+    $html = '<option value="">-- Select Product --</option>';
+    foreach ($products as $product) {
+        $unitDisplay = !empty($product['unit_code']) 
+            ? ' (' . e($product['unit_code']) . ')' 
+            : '';
+        $html .= sprintf(
+            '<option value="%d" data-rate="%s" data-mrp="%s" data-unit="%s">
+                %s %s %s
+            </option>',
+            (int)$product['id'],
+            (float)$product['purchase_price'],
+            (float)$product['mrp'],
+            e($product['unit_code'] ?? ''),
+            e($product['product_name']),
+            !empty($product['sku']) ? '- ' . e($product['sku']) : '',
+            $unitDisplay
+        );
+    }
+    return $html;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -598,26 +520,441 @@ $today = date('Y-m-d');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Purchase Inward - VyaapaarOS</title>
     <style>
-        /* ... (same as before) ... */
-        .unit-select { min-width: 80px; padding: 6px 8px; }
-        .product-cell { display: flex; gap: 5px; align-items: center; }
-        .unit-badge { 
-            display: inline-block; 
-            background: #dbeafe; 
-            color: #1e40af; 
-            padding: 2px 8px; 
-            border-radius: 12px; 
-            font-size: 11px; 
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            color: #111827;
+        }
+        .header {
+            background: #111827;
+            color: white;
+            padding: 18px 30px;
+        }
+        .header h1 { margin: 0; }
+        .container {
+            width: 1400px;
+            max-width: calc(100% - 30px);
+            margin: 25px auto;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.05);
+        }
+        h2 { margin-top: 0; font-size: 18px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        .field label {
+            display: block;
             font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        textarea { min-height: 80px; }
+        .table-wrap { overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1350px;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 8px;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 13px;
+        }
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .item-input { 
+            min-width: 80px; 
+            padding: 6px 8px;
+        }
+        .product-select { 
+            min-width: 200px; 
+            padding: 6px 8px;
+        }
+        .date-input { 
+            min-width: 130px; 
+            padding: 6px 8px;
+        }
+        .unit-badge {
+            display: inline-block;
+            background: #e5e7eb;
+            color: #374151;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .btn {
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 14px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-success { background: #059669; color: white; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-warning { background: #d97706; color: white; }
+        .btn-sm { padding: 4px 8px; font-size: 11px; }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .alert-success {
+            background: #dcfce7;
+            color: #166534;
+            padding: 12px;
+            border-radius: 7px;
+            margin-bottom: 20px;
+        }
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 7px;
+            margin-bottom: 20px;
+        }
+        .status {
+            font-weight: bold;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: inline-block;
+        }
+        .status-DRAFT { background: #fef3c7; color: #92400e; }
+        .status-QC_PENDING { background: #dbeafe; color: #1e40af; }
+        .status-QC_APPROVED { background: #d1fae5; color: #065f46; }
+        .status-QC_PARTIAL { background: #ede9fe; color: #5b21b6; }
+        .status-QC_REJECTED { background: #fee2e2; color: #991b1b; }
+        .status-PURCHASE_CREATED { background: #d1fae5; color: #065f46; }
+        .status-CANCELLED { background: #f3f4f6; color: #6b7280; }
+        .back {
+            display: inline-block;
+            margin-bottom: 15px;
+            text-decoration: none;
+            color: #2563eb;
+        }
+        .info {
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 12px;
+            border-radius: 7px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .summary {
+            display: flex;
+            gap: 30px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .summary-box {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px 18px;
+        }
+        .summary-box strong {
+            display: block;
+            font-size: 18px;
+            margin-top: 4px;
+        }
+        .text-muted { color: #6b7280; font-size: 12px; }
+        .section-title {
+            font-size: 15px;
+            font-weight: bold;
+            margin: 20px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .unit-column {
+            font-size: 11px;
+            color: #6b7280;
+        }
+        @media (max-width: 900px) {
+            .grid { grid-template-columns: repeat(2, 1fr); }
+            .grid-3 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: 1fr; }
+            .grid-3 { grid-template-columns: 1fr; }
+            .container { max-width: calc(100% - 15px); }
         }
     </style>
 </head>
 <body>
-<!-- ... (same as before, update items table) ... -->
+
+<div class="header">
+    <h1>📦 Purchase Inward / Receiving</h1>
+</div>
+
+<div class="container">
+
+<a class="back" href="dashboard.php">← Back to Dashboard</a>
+
+<?php if ($message !== ''): ?>
+    <div class="alert-success"><?= e($message) ?></div>
+<?php endif; ?>
+
+<?php if ($error !== ''): ?>
+    <div class="alert-error"><?= e($error) ?></div>
+<?php endif; ?>
+
+<div class="card">
+    <div class="info">
+        <strong>Important:</strong>
+        यह Purchase Entry नहीं है। यह केवल supplier से माल receive होने की entry है।
+        QC approve होने के बाद ही इससे Purchase बनेगा और Stock में जाएगा।
+    </div>
+
+    <h2>Create Purchase Inward</h2>
+
+    <form method="POST" id="inwardForm">
+
+        <div class="grid">
+            <div class="field">
+                <label>Inward Number *</label>
+                <input type="text" name="inward_number" value="<?= e($defaultInwardNumber) ?>" required>
+            </div>
+
+            <div class="field">
+                <label>Inward Date *</label>
+                <input type="date" name="inward_date" value="<?= e($today) ?>" required>
+            </div>
+
+            <div class="field">
+                <label>Supplier *</label>
+                <select name="supplier_id" required>
+                    <option value="">-- Select Supplier --</option>
+                    <?php foreach ($suppliers as $supplier): ?>
+                        <option value="<?= (int)$supplier['id'] ?>">
+                            <?= e($supplier['party_name']) ?>
+                            <?php if (!empty($supplier['phone'])): ?>
+                                (<?= e($supplier['phone']) ?>)
+                            <?php endif; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Warehouse *</label>
+                <select name="warehouse_id" required>
+                    <option value="">-- Select Warehouse --</option>
+                    <?php foreach ($warehouses as $warehouse): ?>
+                        <option value="<?= (int)$warehouse['id'] ?>">
+                            <?= e($warehouse['warehouse_name']) ?>
+                            <?php if (!empty($warehouse['warehouse_code'])): ?>
+                                (<?= e($warehouse['warehouse_code']) ?>)
+                            <?php endif; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Supplier Invoice No.</label>
+                <input type="text" name="supplier_invoice_number" placeholder="Supplier bill number">
+            </div>
+
+            <div class="field">
+                <label>Supplier Invoice Date</label>
+                <input type="date" name="supplier_invoice_date">
+            </div>
+        </div>
+
+        <!-- Logistics Section -->
+        <div class="section-title">🚚 Logistics Details</div>
+
+        <div class="grid-3">
+            <div class="field">
+                <label>Challan / LR No.</label>
+                <input type="text" name="challan_lr_no" placeholder="Challan or LR number">
+            </div>
+
+            <div class="field">
+                <label>Challan / LR Date</label>
+                <input type="date" name="challan_lr_date">
+            </div>
+
+            <div class="field">
+                <label>Vehicle No.</label>
+                <input type="text" name="vehicle_no" placeholder="Vehicle number">
+            </div>
+
+            <div class="field">
+                <label>Transporter Name</label>
+                <input type="text" name="transporter_name" placeholder="Transporter name">
+            </div>
+
+            <div class="field">
+                <label>Gate Pass No.</label>
+                <input type="text" name="gate_pass_no" placeholder="Gate pass number">
+            </div>
+        </div>
+
+        <br>
+
+        <h2>Received Items</h2>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th style="min-width:250px;">Product * <span class="unit-column">(Unit)</span></th>
+                        <th style="min-width:100px;">Received Qty *</th>
+                        <th style="min-width:90px;">Free Qty</th>
+                        <th style="min-width:90px;">Rate</th>
+                        <th style="min-width:90px;">MRP</th>
+                        <th style="min-width:100px;">Batch No.</th>
+                        <th style="min-width:130px;">Mfg. Date</th>
+                        <th style="min-width:130px;">Expiry Date</th>
+                        <th style="min-width:100px;">Remarks</th>
+                        <th style="width:70px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsBody"></tbody>
+            </table>
+        </div>
+
+        <br>
+
+        <button type="button" class="btn btn-primary" onclick="addItem()">
+            + Add Product
+        </button>
+
+        <div class="summary">
+            <div class="summary-box">
+                Received Qty
+                <strong id="totalReceived">0.000</strong>
+            </div>
+            <div class="summary-box">
+                Free Qty
+                <strong id="totalFree">0.000</strong>
+            </div>
+            <div class="summary-box">
+                Total Qty
+                <strong id="totalQty">0.000</strong>
+            </div>
+        </div>
+
+        <br>
+
+        <div class="field">
+            <label>Inward Remarks</label>
+            <textarea name="remarks" placeholder="Receiving remarks..."></textarea>
+        </div>
+
+        <div class="actions">
+            <button type="submit" name="action" value="draft" class="btn btn-secondary">
+                💾 Save Draft
+            </button>
+            <button type="submit" name="action" value="qc" class="btn btn-success">
+                🔎 Save & Send to Quality Check
+            </button>
+        </div>
+
+    </form>
+</div>
+
+<div class="card">
+    <h2>Purchase Inward List</h2>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Inward No.</th>
+                    <th>Date</th>
+                    <th>Supplier</th>
+                    <th>Warehouse</th>
+                    <th>Supplier Invoice</th>
+                    <th>Items</th>
+                    <th>Total Qty</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (count($inwards) === 0): ?>
+                    <tr>
+                        <td colspan="10" style="text-align:center; padding:30px; color:#6b7280;">
+                            No Purchase Inward found.
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($inwards as $inward): ?>
+                        <tr>
+                            <td><?= (int)$inward['id'] ?></td>
+                            <td><strong><?= e($inward['inward_number']) ?></strong></td>
+                            <td><?= e($inward['inward_date']) ?></td>
+                            <td><?= e($inward['party_name'] ?? '-') ?></td>
+                            <td><?= e($inward['warehouse_name'] ?? '-') ?></td>
+                            <td><?= e($inward['supplier_invoice_number'] ?? '-') ?></td>
+                            <td><?= (int)$inward['item_count'] ?></td>
+                            <td><?= number_format((float)$inward['total_qty'], 3) ?></td>
+                            <td>
+                                <span class="status status-<?= e($inward['status']) ?>">
+                                    <?= str_replace('_', ' ', e($inward['status'])) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?php if ($inward['status'] === 'QC_PENDING'): ?>
+                                    <a class="btn btn-warning btn-sm" href="quality_check.php?inward_id=<?= (int)$inward['id'] ?>">
+                                        Open QC
+                                    </a>
+                                <?php elseif ($inward['status'] === 'DRAFT'): ?>
+                                    <span class="text-muted">Draft</span>
+                                <?php elseif ($inward['status'] === 'QC_APPROVED' || $inward['status'] === 'QC_PARTIAL'): ?>
+                                    <span class="text-muted">QC Done</span>
+                                <?php elseif ($inward['status'] === 'PURCHASE_CREATED'): ?>
+                                    <span class="text-muted">Purchase Created</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</div>
 
 <script>
 const products = <?= json_encode($products, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-const allUnits = <?= json_encode($productUnits, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
 let itemIndex = 0;
 
@@ -635,32 +972,13 @@ function productOptions() {
     products.forEach(product => {
         let unitDisplay = product.unit_code ? ' (' + escapeHtml(product.unit_code) + ')' : '';
         html += `
-            <option value="${product.id}" 
-                    data-rate="${product.purchase_price || 0}" 
-                    data-mrp="${product.mrp || 0}" 
-                    data-base-unit="${product.base_unit_id || 0}"
-                    data-unit="${escapeHtml(product.unit_code || '')}">
+            <option value="${product.id}" data-rate="${product.purchase_price || 0}" data-mrp="${product.mrp || 0}" data-unit="${escapeHtml(product.unit_code || '')}">
                 ${escapeHtml(product.product_name)}
                 ${product.sku ? ' - ' + escapeHtml(product.sku) : ''}
                 ${unitDisplay}
             </option>
         `;
     });
-    return html;
-}
-
-function getUnitOptions(productId, selectedUnitId) {
-    let html = '';
-    // Find product's available units
-    const product = products.find(p => p.id == productId);
-    if (product && product.available_units) {
-        const units = JSON.parse(product.available_units);
-        units.forEach(unit => {
-            let selected = (unit.unit_id == selectedUnitId) ? 'selected' : '';
-            let label = unit.unit_code + (unit.is_base ? ' (Base)' : '');
-            html += `<option value="${unit.unit_id}" ${selected}>${escapeHtml(label)}</option>`;
-        });
-    }
     return html;
 }
 
@@ -672,17 +990,10 @@ function addItem() {
     tr.innerHTML = `
         <td class="row-number" style="text-align:center;">${itemIndex + 1}</td>
         <td>
-            <div class="product-cell">
-                <select name="product_id[]" class="product-select" onchange="productChanged(this, ${itemIndex})" required>
-                    ${productOptions()}
-                </select>
-                <span class="unit-badge" id="unitDisplay_${itemIndex}" style="display:none;">Unit</span>
-            </div>
-        </td>
-        <td>
-            <select name="unit_id[]" class="unit-select" id="unitSelect_${itemIndex}" onchange="unitChanged(${itemIndex})">
-                <option value="">Unit</option>
+            <select name="product_id[]" class="product-select" onchange="productChanged(this)" required>
+                ${productOptions()}
             </select>
+            <span class="unit-badge" id="unitDisplay_${itemIndex}" style="display:none; margin-left:5px;">Unit</span>
         </td>
         <td>
             <input type="number" name="received_qty[]" class="item-input received-qty" min="0.001" step="0.001" value="1" oninput="calculateTotals()" required>
@@ -719,24 +1030,24 @@ function addItem() {
     calculateTotals();
 }
 
-function productChanged(select, index) {
+function productChanged(select) {
     const row = select.closest('tr');
     const option = select.options[select.selectedIndex];
-    const unitSelect = document.getElementById('unitSelect_' + index);
 
     if (!option || !option.value) {
-        unitSelect.innerHTML = '<option value="">Unit</option>';
-        document.getElementById('unitDisplay_' + index).style.display = 'none';
+        // Hide unit badge if no product selected
+        const unitBadge = row.querySelector('.unit-badge');
+        if (unitBadge) unitBadge.style.display = 'none';
         return;
     }
 
     const rate = option.dataset.rate || 0;
     const mrp = option.dataset.mrp || 0;
-    const productId = option.value;
-    const baseUnitId = option.dataset.baseUnit || 0;
+    const unit = option.dataset.unit || '';
 
     const rateInput = row.querySelector('.rate');
     const mrpInput = row.querySelector('.mrp');
+    const unitBadge = row.querySelector('.unit-badge');
 
     if (parseFloat(rateInput.value) === 0) {
         rateInput.value = rate;
@@ -745,48 +1056,10 @@ function productChanged(select, index) {
         mrpInput.value = mrp;
     }
 
-    // Update unit dropdown
-    const product = products.find(p => p.id == productId);
-    if (product && product.available_units) {
-        let units = JSON.parse(product.available_units);
-        let html = '';
-        // Add base unit first
-        const baseUnit = units.find(u => u.is_base);
-        if (baseUnit) {
-            html += `<option value="${baseUnit.unit_id}" selected>${escapeHtml(baseUnit.unit_code)} (Base)</option>`;
-        }
-        // Add other units
-        units.forEach(unit => {
-            if (!unit.is_base) {
-                html += `<option value="${unit.unit_id}">${escapeHtml(unit.unit_code)}</option>`;
-            }
-        });
-        unitSelect.innerHTML = html;
-    } else {
-        unitSelect.innerHTML = '<option value="">No units available</option>';
-    }
-
     // Show unit badge
-    const unitBadge = document.getElementById('unitDisplay_' + index);
-    const selectedUnit = unitSelect.options[unitSelect.selectedIndex];
-    if (selectedUnit && selectedUnit.value) {
-        unitBadge.textContent = selectedUnit.text;
-        unitBadge.style.display = 'inline-block';
-    } else {
-        unitBadge.style.display = 'none';
-    }
-}
-
-function unitChanged(index) {
-    const unitSelect = document.getElementById('unitSelect_' + index);
-    const unitBadge = document.getElementById('unitDisplay_' + index);
-    const selectedUnit = unitSelect.options[unitSelect.selectedIndex];
-    
-    if (selectedUnit && selectedUnit.value) {
-        unitBadge.textContent = selectedUnit.text;
-        unitBadge.style.display = 'inline-block';
-    } else {
-        unitBadge.style.display = 'none';
+    if (unitBadge) {
+        unitBadge.textContent = unit || 'Unit';
+        unitBadge.style.display = unit ? 'inline-block' : 'none';
     }
 }
 
