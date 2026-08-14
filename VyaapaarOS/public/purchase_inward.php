@@ -58,19 +58,13 @@ try {
     |--------------------------------------------------------------------------
     */
     $stmt = $db->prepare("
-        SELECT
-            id,
-            party_name,
-            phone,
-            gst_type,
-            state_code
+        SELECT id, party_name, phone, gst_type, state_code
         FROM parties
         WHERE company_id = :company_id
           AND is_active = TRUE
           AND party_type IN ('VENDOR', 'BOTH')
         ORDER BY party_name
     ");
-
     $stmt->execute(['company_id' => $companyId]);
     $suppliers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -80,17 +74,13 @@ try {
     |--------------------------------------------------------------------------
     */
     $stmt = $db->prepare("
-        SELECT
-            id,
-            warehouse_name,
-            warehouse_code
+        SELECT id, warehouse_name, warehouse_code
         FROM warehouses
         WHERE company_id = :company_id
           AND branch_id = :branch_id
           AND is_active = TRUE
         ORDER BY warehouse_name
     ");
-
     $stmt->execute([
         'company_id' => $companyId,
         'branch_id' => $branchId
@@ -99,7 +89,7 @@ try {
 
     /*
     |--------------------------------------------------------------------------
-    | Products
+    | Products with Unit Information
     |--------------------------------------------------------------------------
     */
     $stmt = $db->prepare("
@@ -113,14 +103,16 @@ try {
             p.gst_rate,
             p.cess_rate,
             p.base_unit_id,
-            u.unit_name
+            u.id AS unit_id,
+            u.unit_name,
+            u.unit_code,
+            u.is_base_unit
         FROM products p
         LEFT JOIN product_units u ON u.id = p.base_unit_id
         WHERE p.company_id = :company_id
           AND p.is_active = TRUE
         ORDER BY p.product_name
     ");
-
     $stmt->execute(['company_id' => $companyId]);
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -179,7 +171,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Check if inward number already exists
-        $stmt = $db->prepare("SELECT id FROM purchase_inwards WHERE inward_number = :inward_number AND company_id = :company_id");
+        $stmt = $db->prepare("
+            SELECT id FROM purchase_inwards 
+            WHERE inward_number = :inward_number AND company_id = :company_id
+        ");
         $stmt->execute(['inward_number' => $inwardNumber, 'company_id' => $companyId]);
         if ($stmt->fetch()) {
             throw new Exception('Inward number already exists. Please use a unique number.');
@@ -274,9 +269,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             |--------------------------------------------------------------------------
             */
             $stmt = $db->prepare("
-                SELECT id, base_unit_id, product_name, purchase_price, mrp, gst_rate
-                FROM products
-                WHERE id = :id AND company_id = :company_id AND is_active = TRUE
+                SELECT 
+                    p.id, 
+                    p.base_unit_id, 
+                    p.product_name, 
+                    p.purchase_price, 
+                    p.mrp, 
+                    p.gst_rate,
+                    u.unit_code,
+                    u.unit_name
+                FROM products p
+                LEFT JOIN product_units u ON u.id = p.base_unit_id
+                WHERE p.id = :id AND p.company_id = :company_id AND p.is_active = TRUE
                 LIMIT 1
             ");
             $stmt->execute(['id' => $productId, 'company_id' => $companyId]);
@@ -313,7 +317,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'batch_number' => $batchNumber !== '' ? $batchNumber : null,
                 'manufacturing_date' => $manufacturingDate,
                 'expiry_date' => $expiryDate,
-                'remarks' => $itemRemark !== '' ? $itemRemark : null
+                'remarks' => $itemRemark !== '' ? $itemRemark : null,
+                'unit_code' => $product['unit_code'] ?? ''
             ];
         }
 
@@ -483,6 +488,29 @@ try {
 $defaultInwardNumber = 'INW-' . date('Ymd-His');
 $today = date('Y-m-d');
 
+// Product dropdown function
+function productOptions($products) {
+    $html = '<option value="">-- Select Product --</option>';
+    foreach ($products as $product) {
+        $unitDisplay = !empty($product['unit_code']) 
+            ? ' (' . e($product['unit_code']) . ')' 
+            : '';
+        $html .= sprintf(
+            '<option value="%d" data-rate="%s" data-mrp="%s" data-unit="%s">
+                %s %s %s
+            </option>',
+            (int)$product['id'],
+            (float)$product['purchase_price'],
+            (float)$product['mrp'],
+            e($product['unit_code'] ?? ''),
+            e($product['product_name']),
+            !empty($product['sku']) ? '- ' . e($product['sku']) : '',
+            $unitDisplay
+        );
+    }
+    return $html;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -517,7 +545,7 @@ $today = date('Y-m-d');
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,.05);
         }
-        h2 { margin-top: 0; }
+        h2 { margin-top: 0; font-size: 18px; }
         .grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -532,11 +560,11 @@ $today = date('Y-m-d');
             display: block;
             font-weight: bold;
             margin-bottom: 6px;
-            font-size: 14px;
+            font-size: 13px;
         }
         input, select, textarea {
             width: 100%;
-            padding: 10px;
+            padding: 8px 10px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
             font-size: 14px;
@@ -549,33 +577,53 @@ $today = date('Y-m-d');
             min-width: 1350px;
         }
         th, td {
-            border-bottom: 1px solid #e5e7eb;
-            padding: 9px;
+            border: 1px solid #e5e7eb;
+            padding: 8px;
             text-align: left;
             vertical-align: middle;
+            font-size: 13px;
         }
         th {
             background: #f8fafc;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
+            white-space: nowrap;
         }
-        .item-input { min-width: 95px; }
-        .product-select { min-width: 230px; }
-        .date-input { min-width: 145px; }
+        .item-input { 
+            min-width: 80px; 
+            padding: 6px 8px;
+        }
+        .product-select { 
+            min-width: 200px; 
+            padding: 6px 8px;
+        }
+        .date-input { 
+            min-width: 130px; 
+            padding: 6px 8px;
+        }
+        .unit-badge {
+            display: inline-block;
+            background: #e5e7eb;
+            color: #374151;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
         .btn {
             border: 0;
             border-radius: 6px;
-            padding: 10px 16px;
+            padding: 8px 14px;
             cursor: pointer;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
         }
         .btn-primary { background: #2563eb; color: white; }
         .btn-success { background: #059669; color: white; }
         .btn-danger { background: #dc2626; color: white; }
         .btn-secondary { background: #6b7280; color: white; }
         .btn-warning { background: #d97706; color: white; }
-        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn-sm { padding: 4px 8px; font-size: 11px; }
         .actions {
             display: flex;
             gap: 10px;
@@ -600,7 +648,7 @@ $today = date('Y-m-d');
             font-weight: bold;
             padding: 4px 10px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11px;
             display: inline-block;
         }
         .status-DRAFT { background: #fef3c7; color: #92400e; }
@@ -622,6 +670,7 @@ $today = date('Y-m-d');
             padding: 12px;
             border-radius: 7px;
             margin-bottom: 15px;
+            font-size: 14px;
         }
         .summary {
             display: flex;
@@ -640,13 +689,17 @@ $today = date('Y-m-d');
             font-size: 18px;
             margin-top: 4px;
         }
-        .text-muted { color: #6b7280; font-size: 13px; }
+        .text-muted { color: #6b7280; font-size: 12px; }
         .section-title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
-            margin: 20px 0 15px 0;
+            margin: 20px 0 12px 0;
             padding-bottom: 8px;
             border-bottom: 2px solid #e5e7eb;
+        }
+        .unit-column {
+            font-size: 11px;
+            color: #6b7280;
         }
         @media (max-width: 900px) {
             .grid { grid-template-columns: repeat(2, 1fr); }
@@ -778,17 +831,17 @@ $today = date('Y-m-d');
             <table>
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Product *</th>
-                        <th>Received Qty *</th>
-                        <th>Free Qty</th>
-                        <th>Rate</th>
-                        <th>MRP</th>
-                        <th>Batch No.</th>
-                        <th>Manufacturing Date</th>
-                        <th>Expiry Date</th>
-                        <th>Remarks</th>
-                        <th>Action</th>
+                        <th style="width:40px;">#</th>
+                        <th style="min-width:250px;">Product * <span class="unit-column">(Unit)</span></th>
+                        <th style="min-width:100px;">Received Qty *</th>
+                        <th style="min-width:90px;">Free Qty</th>
+                        <th style="min-width:90px;">Rate</th>
+                        <th style="min-width:90px;">MRP</th>
+                        <th style="min-width:100px;">Batch No.</th>
+                        <th style="min-width:130px;">Mfg. Date</th>
+                        <th style="min-width:130px;">Expiry Date</th>
+                        <th style="min-width:100px;">Remarks</th>
+                        <th style="width:70px;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="itemsBody"></tbody>
@@ -917,10 +970,12 @@ function escapeHtml(value) {
 function productOptions() {
     let html = '<option value="">-- Select Product --</option>';
     products.forEach(product => {
+        let unitDisplay = product.unit_code ? ' (' + escapeHtml(product.unit_code) + ')' : '';
         html += `
-            <option value="${product.id}" data-rate="${product.purchase_price || 0}" data-mrp="${product.mrp || 0}">
+            <option value="${product.id}" data-rate="${product.purchase_price || 0}" data-mrp="${product.mrp || 0}" data-unit="${escapeHtml(product.unit_code || '')}">
                 ${escapeHtml(product.product_name)}
                 ${product.sku ? ' - ' + escapeHtml(product.sku) : ''}
+                ${unitDisplay}
             </option>
         `;
     });
@@ -933,11 +988,12 @@ function addItem() {
     tr.dataset.index = itemIndex;
 
     tr.innerHTML = `
-        <td class="row-number">${itemIndex + 1}</td>
+        <td class="row-number" style="text-align:center;">${itemIndex + 1}</td>
         <td>
             <select name="product_id[]" class="product-select" onchange="productChanged(this)" required>
                 ${productOptions()}
             </select>
+            <span class="unit-badge" id="unitDisplay_${itemIndex}" style="display:none; margin-left:5px;">Unit</span>
         </td>
         <td>
             <input type="number" name="received_qty[]" class="item-input received-qty" min="0.001" step="0.001" value="1" oninput="calculateTotals()" required>
@@ -964,7 +1020,7 @@ function addItem() {
             <input type="text" name="item_remarks[]" class="item-input" placeholder="Remarks">
         </td>
         <td>
-            <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(this)">Remove</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(this)">✕</button>
         </td>
     `;
 
@@ -978,19 +1034,32 @@ function productChanged(select) {
     const row = select.closest('tr');
     const option = select.options[select.selectedIndex];
 
-    if (!option || !option.value) return;
+    if (!option || !option.value) {
+        // Hide unit badge if no product selected
+        const unitBadge = row.querySelector('.unit-badge');
+        if (unitBadge) unitBadge.style.display = 'none';
+        return;
+    }
 
     const rate = option.dataset.rate || 0;
     const mrp = option.dataset.mrp || 0;
+    const unit = option.dataset.unit || '';
 
     const rateInput = row.querySelector('.rate');
     const mrpInput = row.querySelector('.mrp');
+    const unitBadge = row.querySelector('.unit-badge');
 
     if (parseFloat(rateInput.value) === 0) {
         rateInput.value = rate;
     }
     if (parseFloat(mrpInput.value) === 0) {
         mrpInput.value = mrp;
+    }
+
+    // Show unit badge
+    if (unitBadge) {
+        unitBadge.textContent = unit || 'Unit';
+        unitBadge.style.display = unit ? 'inline-block' : 'none';
     }
 }
 
